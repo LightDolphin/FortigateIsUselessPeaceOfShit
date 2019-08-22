@@ -1,0 +1,137 @@
+﻿using Microsoft.Win32;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Forms;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+using System.Xml;
+
+namespace testOnSt
+{
+    /// <summary>
+    /// Логика взаимодействия для MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        public static string FileName { get; set; }
+        public static XmlDataProvider XmlDP { get; set; }
+        public MainWindow()
+        {
+            InitializeComponent();
+            XmlDP = new XmlDataProvider();
+        }
+
+        private void OpenFileButton_Click(object sender, RoutedEventArgs e)
+        {
+
+            Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog();
+            if (openFileDialog.ShowDialog() == true)
+            {
+                FileName = openFileDialog.FileName;
+                FileNameTextBox.Text = FileName;
+            }
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            if (FileName == null)
+            {
+                System.Windows.MessageBox.Show("Не выбран файл");
+                return;
+            }
+            XmlDP.Document = new XmlDocument();
+            XmlDP.Document.Load(FileName);
+            if (txtEditor == null || txtEditor.Text.Length < 1)
+            {
+                System.Windows.MessageBox.Show("Ошика. Вы ввели неверный xPath");
+            }
+            else
+            {
+                //fill text
+
+
+                //fill nodes
+                textView.Clear();
+                nodesTree.Items.Clear();
+                try
+                {
+                    var selected = XmlDP.Document.SelectNodes(txtEditor.Text);
+                    TreeViewItem rootNode;
+                    for (int i = 0; i < selected.Count; i++)
+                    {
+                        textView.Text += selected[i].OuterXml + "\n";
+                        nodesTree.Items.Add(new TreeViewItem() { Header = selected.Item(i).Name });
+                        rootNode = (TreeViewItem)nodesTree.Items[i];
+                        AddNode(selected.Item(i), rootNode);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show(ex.Message);
+                }
+                this.UpdateLayout();
+            }
+        }
+        private void AddNode(XmlNode inXmlNode, TreeViewItem inTreeNode)
+        {
+            try
+            {
+                XmlNode xNode;
+                XmlNodeList nodeList;
+                if (inXmlNode.HasChildNodes)
+                {
+                    nodeList = inXmlNode.ChildNodes;
+                    for (int i = 0; i < nodeList.Count; i++)
+                    {
+                        xNode = inXmlNode.ChildNodes[i];
+                        //добавляем новый узел в дерево
+                        if (nodeList[i].NodeType == XmlNodeType.Element)
+                        {
+                            inTreeNode.Items.Add(new TreeViewItem() { Header = xNode.Name });
+                        }
+                        else
+                        {
+                            //добавляем значение элемента
+                            if (nodeList[i].NodeType == XmlNodeType.Text && inTreeNode != null)
+                            {
+                                TreeViewItem aaa = new TreeViewItem() { Header = "Value" };
+                                aaa.Items.Add(new TreeViewItem() { Header = inXmlNode.InnerText });
+                                inTreeNode.Items.Add(aaa);
+                            }
+                        }
+                        //добавляем атрибуты
+                        if (xNode.Attributes != null)
+                        {
+                            foreach (XmlAttribute atr in xNode.Attributes)
+                            {
+                                TreeViewItem attributes = new TreeViewItem() { Header = "attributes" };
+                                TreeViewItem Values = new TreeViewItem() { Header = atr.Name };
+                                Values.Items.Add(new TreeViewItem() { Header = atr.Value });
+                                attributes.Items.Add(Values);
+                                ((TreeViewItem)inTreeNode.Items[inTreeNode.Items.Count-1]).Items.Add(attributes);
+                            }
+                        }
+                        //рекурсия
+                        if (inTreeNode != null && inTreeNode.Items != null && inTreeNode.Items.Count > 0)
+                            AddNode(xNode, (TreeViewItem)inTreeNode.Items[i]);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("ошибка при формировании node. Внутренняя ошибка - " + ex.Message);
+            }
+        }
+    }
+}
